@@ -58,30 +58,12 @@
                 </div>
             </button>
         </div>
-
-        <!-- Reset Control -->
-        <div class="mt-16">
-            <button 
-                id="resetBtn"
-                class="text-xs text-slate-500 hover:text-red-400 transition-colors border border-slate-700 hover:border-red-900 rounded-full w-10 h-10 flex items-center justify-center"
-                aria-label="Reset Counter"
-            >
-                <i class="fas fa-trash-alt"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- Notification Toast -->
-    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-lg border border-slate-700 opacity-0 transition-opacity duration-300 pointer-events-none text-sm">
-        Counter Reset
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const clickBtn = document.getElementById('clickBtn');
             const countDisplay = document.getElementById('countDisplay');
-            const resetBtn = document.getElementById('resetBtn');
-            const toast = document.getElementById('toast');
 
             // 1. Initialize Count from Local Storage
             // We check if 'clickCount' exists in the browser's storage. If not, default to 0.
@@ -118,20 +100,6 @@
 
                 // Create a floating particle effect (visual polish)
                 createParticle(e.clientX, e.clientY);
-            });
-
-            // 4. Handle Reset
-            resetBtn.addEventListener('click', () => {
-                // Simple confirmation (custom UI, avoiding alert())
-                if(count === 0) return;
-                
-                count = 0;
-                localStorage.setItem('clickCount', 0);
-                updateDisplay();
-                
-                // Show toast notification
-                toast.classList.remove('opacity-0');
-                setTimeout(() => toast.classList.add('opacity-0'), 2000);
             });
 
             // Helper: Particle Effect on Click
