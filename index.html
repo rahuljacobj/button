@@ -3,221 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Persistent Click Counter</title>
+    <title>Global Click Counter</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Custom animation for the button press */
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         
-        .click-anim {
-            animation: press 0.1s ease-in-out;
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: white;
         }
 
-        @keyframes press {
+        .gradient-text {
+            background: linear-gradient(to right, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Pulse animation for the click */
+        @keyframes click-pulse {
             0% { transform: scale(1); }
             50% { transform: scale(0.95); }
             100% { transform: scale(1); }
         }
+        
+        .clicked {
+            animation: click-pulse 0.1s ease-in-out;
+        }
 
-        /* Prevent text selection on rapid clicking */
-        .no-select {
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
+        /* Floating particles animation */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            animation: float-up 1s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(0.5); opacity: 0; }
         }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center font-sans overflow-hidden relative">
+<body class="h-screen flex items-center justify-center overflow-hidden relative">
 
-    <!-- Background decorative elements -->
-    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-20">
-        <div class="absolute top-10 left-10 w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
-        <div class="absolute top-10 right-10 w-64 h-64 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
-        <div class="absolute -bottom-8 left-20 w-64 h-64 bg-pink-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+    <!-- Background Elements -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px]"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[100px]"></div>
     </div>
 
-    <div class="z-10 text-center px-4">
-        <!-- The Main Button Container -->
-        <div class="relative group">
-            <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-            
-            <button 
-                id="clickBtn" 
-                class="relative w-64 h-64 md:w-80 md:h-80 rounded-full bg-slate-800 border-4 border-slate-700 hover:border-blue-500 transition-all duration-300 flex flex-col items-center justify-center shadow-2xl no-select active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
-                aria-label="Increment Counter"
-            >
-                <div class="text-slate-500 text-sm uppercase tracking-widest mb-2 font-semibold">Total Clicks</div>
-                <div id="countDisplay" class="text-6xl md:text-8xl font-black text-white tracking-tighter tabular-nums transition-colors duration-200">
-                    <i class="fas fa-circle-notch fa-spin text-4xl text-slate-600"></i>
-                </div>
-            </button>
-        </div>
+    <div class="text-center w-full max-w-md px-6 relative z-10">
         
-        <p class="mt-8 text-slate-500 text-xs">
-            <i class="fas fa-globe-americas mr-1"></i> Global Live Counter
-        </p>
+        <!-- Status Indicator -->
+        <div id="status-badge" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 border border-slate-700 mb-8 transition-colors duration-300">
+            <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" id="status-dot"></span>
+            <span id="status-text" class="text-slate-400">Connecting...</span>
+        </div>
+
+        <!-- Main Counter -->
+        <div class="glass-panel rounded-3xl p-8 shadow-2xl relative mb-8">
+            <h1 class="text-sm uppercase tracking-widest text-slate-400 font-bold mb-4">Global Clicks</h1>
+            
+            <div class="relative h-32 flex items-center justify-center mb-4">
+                <div id="counter-display" class="text-7xl sm:text-8xl font-black gradient-text tabular-nums tracking-tight">
+                    ---
+                </div>
+            </div>
+            
+            <p class="text-slate-400 text-sm">Every click is saved to the database.</p>
+        </div>
+
+        <!-- Big Button -->
+        <button id="click-btn" class="group relative w-full">
+            <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-75 group-hover:opacity-100 transition duration-200"></div>
+            <div class="relative w-full bg-slate-900 rounded-xl py-6 px-4 flex items-center justify-center gap-3 transition-transform duration-100 active:scale-[0.98]">
+                <i class="fa-solid fa-hand-pointer text-2xl text-white group-hover:text-blue-400 transition-colors"></i>
+                <span class="text-2xl font-bold text-white">Click Me</span>
+            </div>
+        </button>
+
+        <!-- Config Warning (Hidden by default, shown if config is missing) -->
+        <div id="config-warning" class="hidden mt-8 p-4 bg-red-900/50 border border-red-500/50 rounded-lg text-left text-sm">
+            <h3 class="font-bold text-red-200 mb-1"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Setup Required</h3>
+            <p class="text-red-100/80">You need to add your Firebase configuration to the code to deploy this to GitHub. See lines 90-100 in the code.</p>
+        </div>
+
     </div>
 
+    <!-- Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, setDoc, increment, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =================================================================================
+        // ==========================================
         // CONFIGURATION SECTION
-        // =================================================================================
+        // ==========================================
         
-        const manualConfig = {
-          apiKey: "AIzaSyBSRzlMHMWV3STyek6_43bJY-FK91RzP1k",
-          authDomain: "button-a4eee.firebaseapp.com",
-          databaseURL: "https://button-a4eee-default-rtdb.firebaseio.com",
-          projectId: "button-a4eee",
-          storageBucket: "button-a4eee.firebasestorage.app",
-          messagingSenderId: "382328799126",
-          appId: "1:382328799126:web:f166354bfd998a41b9a7b7",
-          measurementId: "G-WML1QBVT09"
-        }; 
-
-        // =================================================================================
-
-        // Determine which config to use
+        // 1. Check if we are in the Preview Environment
+        const isPreview = typeof window.__firebase_config !== 'undefined';
+        
         let firebaseConfig;
-        let appId;
+
+        if (isPreview) {
+            // We are in the AI preview, use the environment config
+            firebaseConfig = JSON.parse(window.__firebase_config);
+        } else {
+            // ============================================================
+            // YOUR CUSTOM CONFIGURATION
+            // ============================================================
+            firebaseConfig = {
+                apiKey: "AIzaSyCqQMKav5EodCefRNO1QQEtJYlTtWNdiPA",
+                authDomain: "click-bfdec.firebaseapp.com",
+                projectId: "click-bfdec",
+                storageBucket: "click-bfdec.firebasestorage.app",
+                messagingSenderId: "761659738638",
+                appId: "1:761659738638:web:137c91863ab596e2594a5f"
+            };
+            // ============================================================
+        }
+
+        // Initialize Firebase
+        let app, auth, db;
         
         try {
-            // PRIORITY 1: Check if running in the Canvas Preview Environment
-            // We must use the internal config/token here to avoid auth errors.
-            if (typeof __firebase_config !== 'undefined') {
-                firebaseConfig = JSON.parse(__firebase_config);
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
-                
-            // PRIORITY 2: Fallback to Manual Config (e.g. GitHub Pages)
-            // This runs when the file is hosted externally where __firebase_config is missing.
-            } else if (manualConfig) {
-                firebaseConfig = manualConfig;
-                appId = 'github-hosted-app';
-            } else {
-                console.error("No Firebase configuration found.");
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            
+            // If the user hasn't replaced the placeholder config, show warning
+            if (firebaseConfig.apiKey === "YOUR_API_KEY_HERE") {
+                document.getElementById('config-warning').classList.remove('hidden');
+                document.getElementById('click-btn').disabled = true;
+                document.getElementById('click-btn').classList.add('opacity-50', 'cursor-not-allowed');
+                throw new Error("Missing Firebase Config");
             }
         } catch (e) {
-            console.error("Error parsing config", e);
+            console.error("Firebase Initialization Error:", e);
         }
 
-        if (firebaseConfig) {
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            
-            const clickBtn = document.getElementById('clickBtn');
-            const countDisplay = document.getElementById('countDisplay');
-            let currentUser = null;
+        // DOM Elements
+        const counterDisplay = document.getElementById('counter-display');
+        const clickBtn = document.getElementById('click-btn');
+        const statusBadge = document.getElementById('status-badge');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
 
-            // Initialize Auth and Listeners
-            const init = async () => {
-                try {
-                    // Authenticate
-                    // If in Canvas, use the injected custom token.
-                    // If on GitHub, use Anonymous auth (Ensure "Anonymous" is enabled in your Firebase Console!)
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+        // State
+        let currentUser = null;
+        let docRef = null;
 
-                    currentUser = auth.currentUser;
-                    
-                    if (!currentUser) return;
-
-                    // Reference to the global counter document
-                    // We use a specific path to ensure data persists correctly
-                    const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', 'global');
-
-                    // Real-time listener: This updates the screen whenever ANYONE clicks
-                    onSnapshot(counterRef, (docSnap) => {
-                        if (docSnap.exists()) {
-                            const data = docSnap.data();
-                            updateDisplay(data.count || 0);
-                        } else {
-                            // If it's the very first time, create the document
-                            setDoc(counterRef, { count: 0 });
-                            updateDisplay(0);
-                        }
-                    }, (error) => {
-                        console.error("Error getting document:", error);
-                        countDisplay.innerHTML = '<span class="text-sm text-red-400">Error</span>';
-                    });
-
-                    // Click Handler
-                    clickBtn.addEventListener('click', async (e) => {
-                        if (!currentUser) return;
-
-                        // Visuals
-                        clickBtn.classList.add('click-anim');
-                        setTimeout(() => clickBtn.classList.remove('click-anim'), 100);
-                        createParticle(e.clientX, e.clientY);
-
-                        // Database Update: Atomic increment ensures accuracy with multiple users
-                        try {
-                            await updateDoc(counterRef, {
-                                count: increment(1)
-                            });
-                        } catch (err) {
-                            // If doc missing, create it
-                            if (err.code === 'not-found') {
-                                await setDoc(counterRef, { count: 1 });
-                            }
-                        }
-                    });
-
-                } catch (error) {
-                    console.error("Initialization error:", error);
-                }
-            };
-
-            init();
-
-            // UI Helper Functions
-            function updateDisplay(val) {
-                countDisplay.textContent = val.toLocaleString();
-                if(val > 0 && val % 100 === 0) {
-                    countDisplay.classList.add('text-yellow-400');
-                    setTimeout(() => countDisplay.classList.remove('text-yellow-400'), 500);
-                }
+        // Path Logic
+        const getDocRef = (uid) => {
+            if (isPreview) {
+                // Mandatory path for Preview Environment
+                const appId = window.__app_id || 'default-app';
+                // We use a public collection so everyone shares the count
+                return doc(db, 'artifacts', appId, 'public', 'data', 'counters', 'global_count'); 
+            } else {
+                // Simple path for your GitHub project
+                return doc(db, 'counters', 'global'); 
             }
+        };
 
-            function createParticle(x, y) {
-                if(x === 0 && y === 0) {
-                    const rect = clickBtn.getBoundingClientRect();
-                    x = rect.left + rect.width / 2;
-                    y = rect.top + rect.height / 2;
+        // Authentication & Connection
+        const initAuth = async () => {
+            if (!auth) return;
+
+            try {
+                if (isPreview && window.__initial_auth_token) {
+                    await signInWithCustomToken(auth, window.__initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
+            } catch (error) {
+                console.error("Auth Error:", error);
+                statusText.innerText = "Auth Failed";
+                statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
+            }
+        };
 
-                const particle = document.createElement('div');
-                particle.className = 'fixed pointer-events-none text-blue-500 font-bold text-xl select-none z-50';
-                particle.textContent = '+1';
-                particle.style.left = `${x}px`;
-                particle.style.top = `${y}px`;
-                particle.style.transition = 'all 0.8s ease-out';
-                particle.style.opacity = '1';
+        initAuth();
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                statusText.innerText = "Live";
+                statusDot.classList.replace('bg-yellow-500', 'bg-emerald-500');
+                statusDot.classList.remove('animate-pulse');
+                statusBadge.classList.replace('border-slate-700', 'border-emerald-500/30');
+                statusBadge.classList.add('bg-emerald-500/10');
+
+                // Setup Firestore Listener
+                docRef = getDocRef(user.uid);
                 
-                document.body.appendChild(particle);
-
-                requestAnimationFrame(() => {
-                    particle.style.transform = `translate(-50%, -100px)`;
-                    particle.style.opacity = '0';
+                // Real-time listener
+                onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        animateCount(data.count || 0);
+                    } else {
+                        // Create doc if it doesn't exist
+                        setDoc(docRef, { count: 0 }).catch(console.error);
+                        counterDisplay.innerText = "0";
+                    }
+                }, (error) => {
+                    console.error("Snapshot Error:", error);
+                    statusText.innerText = "Connection Lost";
+                    statusDot.classList.replace('bg-emerald-500', 'bg-red-500');
                 });
 
-                setTimeout(() => {
-                    particle.remove();
-                }, 800);
+            } else {
+                currentUser = null;
+                statusText.innerText = "Disconnected";
+            }
+        });
+
+        // Click Handler
+        clickBtn.addEventListener('click', async (e) => {
+            if (!currentUser || !docRef) return;
+
+            // Visual feedback
+            const btnContent = clickBtn.querySelector('div');
+            btnContent.classList.add('scale-95');
+            setTimeout(() => btnContent.classList.remove('scale-95'), 100);
+
+            // Particle effect
+            createParticle(e.clientX, e.clientY);
+
+            // Database update (Atomic Increment)
+            try {
+                await updateDoc(docRef, {
+                    count: increment(1)
+                });
+            } catch (err) {
+                console.error("Update failed", err);
+            }
+        });
+
+        // Animation Helper
+        function animateCount(target) {
+            const current = parseInt(counterDisplay.innerText.replace(/\D/g, '')) || 0;
+            if (current !== target) {
+                counterDisplay.innerText = target.toLocaleString();
+                counterDisplay.classList.add('clicked');
+                setTimeout(() => counterDisplay.classList.remove('clicked'), 100);
             }
         }
+
+        function createParticle(x, y) {
+            const particle = document.createElement('div');
+            particle.className = 'particle fixed text-blue-400 font-bold text-xl pointer-events-none z-50';
+            particle.innerText = '+1';
+            particle.style.left = `${x}px`;
+            particle.style.top = `${y}px`;
+            document.body.appendChild(particle);
+            setTimeout(() => particle.remove(), 1000);
+        }
+
     </script>
 </body>
 </html>
