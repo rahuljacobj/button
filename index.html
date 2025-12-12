@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Persistent Click Counter</title>
+    <title>Global Persistent Click Counter</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -54,57 +54,144 @@
             >
                 <div class="text-slate-500 text-sm uppercase tracking-widest mb-2 font-semibold">Total Clicks</div>
                 <div id="countDisplay" class="text-6xl md:text-8xl font-black text-white tracking-tighter tabular-nums transition-colors duration-200">
-                    0
+                    <i class="fas fa-circle-notch fa-spin text-4xl text-slate-600"></i>
                 </div>
             </button>
         </div>
+        
+        <p class="mt-8 text-slate-500 text-xs">
+            <i class="fas fa-globe-americas mr-1"></i> Global Live Counter
+        </p>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =================================================================================
+        // CONFIGURATION SECTION
+        // =================================================================================
+        
+        const manualConfig = {
+          apiKey: "AIzaSyBSRzlMHMWV3STyek6_43bJY-FK91RzP1k",
+          authDomain: "button-a4eee.firebaseapp.com",
+          databaseURL: "https://button-a4eee-default-rtdb.firebaseio.com",
+          projectId: "button-a4eee",
+          storageBucket: "button-a4eee.firebasestorage.app",
+          messagingSenderId: "382328799126",
+          appId: "1:382328799126:web:f166354bfd998a41b9a7b7",
+          measurementId: "G-WML1QBVT09"
+        }; 
+
+        // =================================================================================
+
+        // Determine which config to use
+        let firebaseConfig;
+        let appId;
+        
+        try {
+            // PRIORITY 1: Check if running in the Canvas Preview Environment
+            // We must use the internal config/token here to avoid auth errors.
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
+                
+            // PRIORITY 2: Fallback to Manual Config (e.g. GitHub Pages)
+            // This runs when the file is hosted externally where __firebase_config is missing.
+            } else if (manualConfig) {
+                firebaseConfig = manualConfig;
+                appId = 'github-hosted-app';
+            } else {
+                console.error("No Firebase configuration found.");
+            }
+        } catch (e) {
+            console.error("Error parsing config", e);
+        }
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            
             const clickBtn = document.getElementById('clickBtn');
             const countDisplay = document.getElementById('countDisplay');
+            let currentUser = null;
 
-            // 1. Initialize Count from Local Storage
-            // We check if 'clickCount' exists in the browser's storage. If not, default to 0.
-            let count = parseInt(localStorage.getItem('clickCount')) || 0;
-            
-            // 2. Function to update the visual display
-            const updateDisplay = () => {
-                countDisplay.textContent = count.toLocaleString(); // Adds commas for large numbers
-                
-                // Add a little color flair as numbers get higher
-                if(count > 0 && count % 100 === 0) {
-                    countDisplay.classList.add('text-yellow-400');
-                    setTimeout(() => countDisplay.classList.remove('text-yellow-400'), 500);
+            // Initialize Auth and Listeners
+            const init = async () => {
+                try {
+                    // Authenticate
+                    // If in Canvas, use the injected custom token.
+                    // If on GitHub, use Anonymous auth (Ensure "Anonymous" is enabled in your Firebase Console!)
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    currentUser = auth.currentUser;
+                    
+                    if (!currentUser) return;
+
+                    // Reference to the global counter document
+                    // We use a specific path to ensure data persists correctly
+                    const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', 'global');
+
+                    // Real-time listener: This updates the screen whenever ANYONE clicks
+                    onSnapshot(counterRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            updateDisplay(data.count || 0);
+                        } else {
+                            // If it's the very first time, create the document
+                            setDoc(counterRef, { count: 0 });
+                            updateDisplay(0);
+                        }
+                    }, (error) => {
+                        console.error("Error getting document:", error);
+                        countDisplay.innerHTML = '<span class="text-sm text-red-400">Error</span>';
+                    });
+
+                    // Click Handler
+                    clickBtn.addEventListener('click', async (e) => {
+                        if (!currentUser) return;
+
+                        // Visuals
+                        clickBtn.classList.add('click-anim');
+                        setTimeout(() => clickBtn.classList.remove('click-anim'), 100);
+                        createParticle(e.clientX, e.clientY);
+
+                        // Database Update: Atomic increment ensures accuracy with multiple users
+                        try {
+                            await updateDoc(counterRef, {
+                                count: increment(1)
+                            });
+                        } catch (err) {
+                            // If doc missing, create it
+                            if (err.code === 'not-found') {
+                                await setDoc(counterRef, { count: 1 });
+                            }
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Initialization error:", error);
                 }
             };
 
-            // Initial render
-            updateDisplay();
+            init();
 
-            // 3. Handle Main Button Click
-            clickBtn.addEventListener('click', (e) => {
-                // Increment logic
-                count++;
-                
-                // Save to Local Storage immediately
-                localStorage.setItem('clickCount', count);
-                
-                // Update UI
-                updateDisplay();
+            // UI Helper Functions
+            function updateDisplay(val) {
+                countDisplay.textContent = val.toLocaleString();
+                if(val > 0 && val % 100 === 0) {
+                    countDisplay.classList.add('text-yellow-400');
+                    setTimeout(() => countDisplay.classList.remove('text-yellow-400'), 500);
+                }
+            }
 
-                // Add ripple/click animation class explicitly for feedback
-                clickBtn.classList.add('click-anim');
-                setTimeout(() => clickBtn.classList.remove('click-anim'), 100);
-
-                // Create a floating particle effect (visual polish)
-                createParticle(e.clientX, e.clientY);
-            });
-
-            // Helper: Particle Effect on Click
             function createParticle(x, y) {
-                // If the click was triggered by keyboard (enter/space), center the particle
                 if(x === 0 && y === 0) {
                     const rect = clickBtn.getBoundingClientRect();
                     x = rect.left + rect.width / 2;
@@ -121,18 +208,16 @@
                 
                 document.body.appendChild(particle);
 
-                // Animate up and fade out
                 requestAnimationFrame(() => {
                     particle.style.transform = `translate(-50%, -100px)`;
                     particle.style.opacity = '0';
                 });
 
-                // Cleanup
                 setTimeout(() => {
                     particle.remove();
                 }, 800);
             }
-        });
+        }
     </script>
 </body>
 </html>
