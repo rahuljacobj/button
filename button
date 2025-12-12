@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persistent Click Counter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom animation for the button press */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        
+        .click-anim {
+            animation: press 0.1s ease-in-out;
+        }
+
+        @keyframes press {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        /* Prevent text selection on rapid clicking */
+        .no-select {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center font-sans overflow-hidden relative">
+
+    <!-- Background decorative elements -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 opacity-20">
+        <div class="absolute top-10 left-10 w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+        <div class="absolute top-10 right-10 w-64 h-64 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+        <div class="absolute -bottom-8 left-20 w-64 h-64 bg-pink-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+    </div>
+
+    <div class="z-10 text-center px-4">
+        <!-- The Main Button Container -->
+        <div class="relative group">
+            <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+            
+            <button 
+                id="clickBtn" 
+                class="relative w-64 h-64 md:w-80 md:h-80 rounded-full bg-slate-800 border-4 border-slate-700 hover:border-blue-500 transition-all duration-300 flex flex-col items-center justify-center shadow-2xl no-select active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-500/30"
+                aria-label="Increment Counter"
+            >
+                <div class="text-slate-500 text-sm uppercase tracking-widest mb-2 font-semibold">Total Clicks</div>
+                <div id="countDisplay" class="text-6xl md:text-8xl font-black text-white tracking-tighter tabular-nums transition-colors duration-200">
+                    0
+                </div>
+            </button>
+        </div>
+
+        <!-- Reset Control -->
+        <div class="mt-16">
+            <button 
+                id="resetBtn"
+                class="text-xs text-slate-500 hover:text-red-400 transition-colors border border-slate-700 hover:border-red-900 rounded-full w-10 h-10 flex items-center justify-center"
+                aria-label="Reset Counter"
+            >
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-lg border border-slate-700 opacity-0 transition-opacity duration-300 pointer-events-none text-sm">
+        Counter Reset
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const clickBtn = document.getElementById('clickBtn');
+            const countDisplay = document.getElementById('countDisplay');
+            const resetBtn = document.getElementById('resetBtn');
+            const toast = document.getElementById('toast');
+
+            // 1. Initialize Count from Local Storage
+            // We check if 'clickCount' exists in the browser's storage. If not, default to 0.
+            let count = parseInt(localStorage.getItem('clickCount')) || 0;
+            
+            // 2. Function to update the visual display
+            const updateDisplay = () => {
+                countDisplay.textContent = count.toLocaleString(); // Adds commas for large numbers
+                
+                // Add a little color flair as numbers get higher
+                if(count > 0 && count % 100 === 0) {
+                    countDisplay.classList.add('text-yellow-400');
+                    setTimeout(() => countDisplay.classList.remove('text-yellow-400'), 500);
+                }
+            };
+
+            // Initial render
+            updateDisplay();
+
+            // 3. Handle Main Button Click
+            clickBtn.addEventListener('click', (e) => {
+                // Increment logic
+                count++;
+                
+                // Save to Local Storage immediately
+                localStorage.setItem('clickCount', count);
+                
+                // Update UI
+                updateDisplay();
+
+                // Add ripple/click animation class explicitly for feedback
+                clickBtn.classList.add('click-anim');
+                setTimeout(() => clickBtn.classList.remove('click-anim'), 100);
+
+                // Create a floating particle effect (visual polish)
+                createParticle(e.clientX, e.clientY);
+            });
+
+            // 4. Handle Reset
+            resetBtn.addEventListener('click', () => {
+                // Simple confirmation (custom UI, avoiding alert())
+                if(count === 0) return;
+                
+                count = 0;
+                localStorage.setItem('clickCount', 0);
+                updateDisplay();
+                
+                // Show toast notification
+                toast.classList.remove('opacity-0');
+                setTimeout(() => toast.classList.add('opacity-0'), 2000);
+            });
+
+            // Helper: Particle Effect on Click
+            function createParticle(x, y) {
+                // If the click was triggered by keyboard (enter/space), center the particle
+                if(x === 0 && y === 0) {
+                    const rect = clickBtn.getBoundingClientRect();
+                    x = rect.left + rect.width / 2;
+                    y = rect.top + rect.height / 2;
+                }
+
+                const particle = document.createElement('div');
+                particle.className = 'fixed pointer-events-none text-blue-500 font-bold text-xl select-none z-50';
+                particle.textContent = '+1';
+                particle.style.left = `${x}px`;
+                particle.style.top = `${y}px`;
+                particle.style.transition = 'all 0.8s ease-out';
+                particle.style.opacity = '1';
+                
+                document.body.appendChild(particle);
+
+                // Animate up and fade out
+                requestAnimationFrame(() => {
+                    particle.style.transform = `translate(-50%, -100px)`;
+                    particle.style.opacity = '0';
+                });
+
+                // Cleanup
+                setTimeout(() => {
+                    particle.remove();
+                }, 800);
+            }
+        });
+    </script>
+</body>
+</html>
